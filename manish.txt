@@ -1,0 +1,367 @@
+Scenario B1: Cafe Orders – Aggregation
+Step 1: Create database and insert datause cafeDB
+
+db.orders.insertMany([
+  {
+    _id: 1,
+    customer: "Meena",
+    item: "Coffee",
+    qty: 2,
+    price: 120,
+    status: "delivered"
+  },
+  {
+    _id: 2,
+    customer: "Ravi",
+    item: "Sandwich",
+    qty: 1,
+    price: 180,
+    status: "delivered"
+  },
+  {
+    _id: 3,
+    customer: "Meena",
+    item: "Sandwich",
+    qty: 2,
+    price: 180,
+    status: "cancelled"
+  },
+  {
+    _id: 4,
+    customer: "Karthik",
+    item: "Coffee",
+    qty: 3,
+    price: 120,
+    status: "delivered"
+  },
+  {
+    _id: 5,
+    customer: "Ravi",
+    item: "Coffee",
+    qty: 1,
+    price: 120,
+    status: "delivered"
+  },
+  {
+    _id: 6,
+    customer: "Meena",
+    item: "Cake",
+    qty: 1,
+    price: 250,
+    status: "delivered"
+  },
+  {
+    _id: 7,
+    customer: "Karthik",
+    item: "Cake",
+    qty: 2,
+    price: 250,
+    status: "pending"
+  }
+])
+
+Task 1: Count orders by status
+db.orders.aggregate([
+  {
+    $group: {
+      _id: "$status",
+      count: { $sum: 1 }
+    }
+  },
+  {
+    $sort: {
+      count: -1
+    }
+  }
+])
+Task 2: Filter using $match and $project
+db.orders.aggregate([
+  {
+    $match: {
+      status: "delivered"
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      customer: 1,
+      item: 1,
+      qty: 1
+    }
+  }
+])
+
+Task 3: Revenue per item
+db.orders.aggregate([
+  {
+    $match: {
+      status: "delivered"
+    }
+  },
+  {
+    $group: {
+      _id: "$item",
+      totalQty: { $sum: "$qty" },
+      revenue: {
+        $sum: {
+          $multiply: ["$qty", "$price"]
+        }
+      }
+    }
+  },
+  {
+    $sort: {
+      revenue: -1
+    }
+  }
+])
+Task 4: Spend per customer
+
+db.orders.aggregate([
+  {
+    $match: {
+      status: "delivered"
+    }
+  },
+  {
+    $group: {
+      _id: "$customer",
+      orders: { $sum: 1 },
+      totalSpend: {
+        $sum: {
+          $multiply: ["$qty", "$price"]
+        }
+      }
+    }
+  },
+  {
+    $sort: {
+      totalSpend: -1
+    }
+  }
+])
+
+Task 5: Find the best customer
+db.orders.aggregate([
+  {
+    $match: {
+      status: "delivered"
+    }
+  },
+  {
+    $group: {
+      _id: "$customer",
+      totalSpend: {
+        $sum: {
+          $multiply: ["$qty", "$price"]
+        }
+      }
+    }
+  },
+  {
+    $sort: {
+      totalSpend: -1
+    }
+  },
+  {
+    $limit: 1
+  }
+])
+
+output of all these 
+task 1 output
+
+[
+  { _id: "delivered", count: 5 },
+  { _id: "cancelled", count: 1 },
+  { _id: "pending", count: 1 }
+]
+
+output of task 3
+[
+  { _id: "Coffee", totalQty: 6, revenue: 720 },
+  { _id: "Cake", totalQty: 1, revenue: 250 },
+  { _id: "Sandwich", totalQty: 1, revenue: 180 }
+]
+
+output of task 4
+[
+  { _id: "Meena", orders: 2, totalSpend: 490 },
+  { _id: "Karthik", orders: 1, totalSpend: 360 },
+  { _id: "Ravi", orders: 2, totalSpend: 300 }
+]
+
+output of task 5
+
+[
+  { _id: "Meena", totalSpend: 490 }
+]
+
+
+
+
+
+scenarios B2Scenario B2: Library Books – Updates, Upserts and Deletes
+Step 1: Create database and insert data
+\
+
+use libraryDB
+
+db.books.insertMany([
+  {
+    _id: 1,
+    title: "Database Systems",
+    author: "Elmasri",
+    copies: 5,
+    status: "available"
+  },
+  {
+    _id: 2,
+    title: "Operating Systems",
+    author: "Galvin",
+    copies: 3,
+    status: "available"
+  },
+  {
+    _id: 3,
+    title: "Computer Networks",
+    author: "Tanenbaum",
+    copies: 0,
+    status: "unavailable"
+  },
+  {
+    _id: 4,
+    title: "Old Almanac 1990",
+    author: "Unknown",
+    copies: 0,
+    status: "unavailable"
+  },
+  {
+    _id: 5,
+    title: "Torn Notes",
+    author: "Unknown",
+    copies: 0,
+    status: "damaged"
+  },
+  {
+    _id: 6,
+    title: "Water-damaged Atlas",
+    author: "Unknown",
+    copies: 1,
+    status: "damaged"
+  }
+])
+
+Task 1: Add 2 copies using $inc
+
+javascript
+db.books.updateOne(
+  { title: "Operating Systems" },
+  { $inc: { copies: 2 } }
+)
+
+
+Task 2: Reduce copies by 1
+
+javascript
+db.books.updateOne(
+  { title: "Database Systems" },
+  { $inc: { copies: -1 } }
+)
+
+
+Task 3: Upsert a new book
+
+javascript
+db.books.updateOne(
+  { title: "Artificial Intelligence" },
+  {
+    $set: {
+      author: "Russell",
+      copies: 4,
+      status: "available"
+    }
+  },
+  { upsert: true }
+)
+
+
+Task 4: Update using $set and $inc together
+
+javascript
+db.books.updateOne(
+  { title: "Computer Networks" },
+  {
+    $set: {
+      status: "available"
+    },
+    $inc: {
+      copies: 3
+    }
+  }
+)
+
+
+Task 5: Delete one book
+
+javascript
+db.books.deleteOne({
+  title: "Old Almanac 1990"
+})
+
+
+Task 6: Delete damaged or lost books
+
+javascript
+db.books.deleteMany({
+  status: {
+    $in: ["damaged", "lost"]
+  }
+})
+
+
+Task 7: Display final data
+
+javascript
+db.books.find(
+  {},
+  {
+    _id: 0,
+    title: 1,
+    copies: 1
+  }
+).sort({
+  title: 1
+})
+
+task 1 output
+Output: Copies change from 3 to 5.
+
+
+task 2 output
+Output: Copies change from 5 to 4.
+
+task 4 output
+Output: Copies = 3 and status = available.
+
+final oputput
+[
+  {
+    title: "Artificial Intelligence",
+    copies: 4
+  },
+  {
+    title: "Computer Networks",
+    copies: 3
+  },
+  {
+    title: "Database Systems",
+    copies: 4
+  },
+  {
+    title: "Operating Systems",
+    copies: 5
+  }
+]
+
+
